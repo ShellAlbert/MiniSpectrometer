@@ -49,6 +49,7 @@ void ZUartWorker::onReadyRead() {
 void ZUartWorker::sendData(const QByteArray &data)
 {
     writeData(data);
+    emit statusMessage(data.toHex());
 }
 void ZUartWorker::writeData(const QByteArray &data)
 {

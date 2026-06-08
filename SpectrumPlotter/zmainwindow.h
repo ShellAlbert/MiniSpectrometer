@@ -8,7 +8,10 @@
 #include <QVBoxLayout>
 #include <QToolButton>
 #include <QCheckBox>
+#include <QScrollArea>
+#include <QSplitter>
 #include <QLabel>
+#include <QTimer>
 #include "zringbuffer.h"
 #include "zuartparser.h"
 #include "zuartworker.h"
@@ -21,12 +24,13 @@ public:
     explicit ZMainWindow(QWidget *parent = nullptr);
     ~ZMainWindow() override;
 
+signals:
+    void sendCommand(const QByteArray &command);
 public slots:
     void onSpectrumRange(const QString &start, const QString &end);
 
-
     void onMessage(const QString &message);
-    void onNewImage(const QImage &image);
+    void onNewImage(const QImage &backgroundImg, const QImage &foregroundImage);
     void onNewFrame(const QByteArray &payload);
 
 
@@ -36,6 +40,12 @@ public slots:
     void onUpdateUI(const QByteArray &data);
 
     void onPortStatusChanged(bool isOpen);
+
+private slots:
+    void onPeriodically(Qt::CheckState state);
+    void onTimeout();
+    void resizeEvent(QResizeEvent *e) override;
+
 private:
     QThread *m_workerThread;
     ZRingBuffer *m_ringBuffer;
@@ -45,11 +55,23 @@ private:
 private:
     QVBoxLayout *m_vLayoutMain;
     QLabel *m_ll;
+    QScrollArea *m_scrollArea;
+    QVBoxLayout *m_vlayoutScrollArea;
+
     QHBoxLayout *m_hLayoutBtn;
     QToolButton *m_tbInitDev;
     QToolButton *m_tbGetRange;
     QToolButton *m_tbGetSpectrum;
     QCheckBox *m_cbVerbose;
+    QCheckBox *m_cbPeriodically;
+    QLabel *m_llCounts;
     QTextEdit *m_teLog;
+
+    QTimer *m_timer;
+
+    QSplitter *m_spliter;
+    //how many times does periodically run?
+    quint32 m_cntPeriodically;
+
 };
 #endif // ZMAINWINDOW_H

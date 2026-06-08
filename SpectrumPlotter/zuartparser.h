@@ -12,6 +12,8 @@ class ZUartParser : public QObject {
     Q_OBJECT
 public:
     explicit ZUartParser(ZRingBuffer *buffer, QObject *parent = nullptr);
+\
+    void updateCanvasSize(QSize newCanvasSize);
 
 public slots:
     void verboseMode(Qt::CheckState state);
@@ -23,13 +25,20 @@ signals:
     void statusMessage(const QString &message);
     void frameReceived(const QByteArray &payload);
     void spectrumRange(const QString &start, const QString &end);
-    void newImage(const QImage &image);
+    void newImage(const QImage &backgroundImg,const QImage &foregroundImage);
 private:
-    void drawImage(qint32 width, qint32 height, const QByteArray &data_array, quint32 index, quint32 point_count);
+    void drawBackground();
+    void drawForeground(qint32 max_x, qint32 max_y, const QByteArray &data_array, quint32 index, quint32 point_count);
 private:
     ZRingBuffer *m_ringBuffer;
     QTimer m_timer;
     QImage m_image;
+    QImage m_backgroundImg;
+    QImage m_foregroundImg;
+
+    QSize m_canvasSize;
+    qreal m_xScale;
+    qreal m_yScale;
 
     quint8 m_verbose;
 };

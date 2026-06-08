@@ -1,15 +1,14 @@
 #include "zuartparser.h"
 #include <QPainter>
 #include <QFile>
+#include <QPoint>
+#include <QDebug>
 #include <QTextStream>
+#include <QFontMetrics>
 ZUartParser::ZUartParser(ZRingBuffer *buffer, QObject *parent)
     : QObject(parent), m_ringBuffer(buffer)
 {
-    //supported range: 350nm~1050nm
-    //x axis range is 1050-350=700.
-    //y axis range is 0~0xFFFF.
-    m_image=QImage(700,10000,QImage::Format_ARGB32);
-    m_image.fill(Qt::black);
+
 
     // Poll the buffer every 10ms to check for complete frames
     m_timer.setInterval(10);
@@ -17,6 +16,12 @@ ZUartParser::ZUartParser(ZRingBuffer *buffer, QObject *parent)
     m_timer.start();
 
     m_verbose=0;
+    //supported range: 350nm~1050nm
+    //x axis range is 1050-350=700.
+    //y axis range is 0~0xFFFF.
+    m_canvasSize=QSize(700,0xFFFF);
+    m_xScale=1.0f;
+    m_yScale=1.0f;
 }
 void ZUartParser::verboseMode(Qt::CheckState state)
 {
@@ -26,6 +31,19 @@ void ZUartParser::verboseMode(Qt::CheckState state)
     }else{
         m_verbose=0;
     }
+}
+void ZUartParser::updateCanvasSize(QSize newCanvasSize)
+{
+    m_canvasSize=newCanvasSize;
+    //350nm~1050nm.
+    m_xScale=(newCanvasSize.width()/(1050.0-350.0));
+    //2^16-1=65535.
+    m_yScale=(newCanvasSize.height()/65535.0);
+
+    m_backgroundImg=QImage(m_canvasSize.width(),m_canvasSize.height(),QImage::Format_ARGB32);
+    m_foregroundImg=QImage(m_canvasSize.width(),m_canvasSize.height(),QImage::Format_ARGB32);
+
+    m_foregroundImg.fill(Qt::transparent);
 }
 void ZUartParser::parseLoop() {
     while (true) {
@@ -135,8 +153,8 @@ void ZUartParser::parseLoop() {
             emit statusMessage("Exposure state "+QString::number(temp81,16).toUpper());
             index+=1;
             \
-            //exposure time. 4 bytes.
-            temp81=static_cast<quint8>(frame.at(index+0));
+                //exposure time. 4 bytes.
+                temp81=static_cast<quint8>(frame.at(index+0));
             temp82=static_cast<quint8>(frame.at(index+1));
             temp83=static_cast<quint8>(frame.at(index+2));
             temp84=static_cast<quint8>(frame.at(index+3));
@@ -465,7 +483,7 @@ void ZUartParser::parseLoop() {
             quint32 photo_data_count=photo_data_len/sizeof(quint16);
 
             //scan all data to find out the maximum value.
-            quint16 maxValue=0;
+            quint16 maxY=0;
 
             for(quint32 i=0;i<photo_data_count; i++)
             {
@@ -477,9 +495,14 @@ void ZUartParser::parseLoop() {
                 }
                 index+=2;
 
-                maxValue=(temp16>maxValue)?(temp16):(maxValue);
+                maxY=(temp16>maxY)?(temp16):(maxY);
             }
-            drawImage(photo_data_count,maxValue,frame,photometric_data_offset,photo_data_count);
+
+            //draw background image and foreground image.
+            drawBackground();
+            drawForeground(photo_data_count,maxY,frame,photometric_data_offset,photo_data_count);
+            emit newImage(m_backgroundImg,m_foregroundImg);
+
 
             //checksum. 1 byte.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -502,20 +525,234 @@ void ZUartParser::parseLoop() {
         m_ringBuffer->consume(totalFrameSize);
     }
 }
-void ZUartParser::drawImage(qint32 width, qint32 height, const QByteArray &data_array, quint32 index, quint32 point_count)
+void ZUartParser::drawBackground()
+{
+    m_backgroundImg.fill(Qt::black);
+
+    QFont font("DejaVu Serif",12);
+    QFontMetrics fm(font);
+
+    QPainter painter(&m_backgroundImg);
+    painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
+    painter.setFont(font);
+    // Translate origin so that logical (0,0) is at pixel (0, height - 100)
+    // This effectively makes the bottom of the image correspond to logical y = -100
+    painter.translate(70, m_backgroundImg.height()-70);
+
+    //draw horizontal legend.
+    QString strWaveRange("Supported waveform range (nanometer scale)");
+    qint32 strWaveRangeWidth=fm.horizontalAdvance(strWaveRange); // /2.
+    painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.drawText((m_backgroundImg.width()-strWaveRangeWidth)/2,60,strWaveRange);
+
+    //draw vertical legend.
+    QString strIntension("Light intension (0~65535)");
+    painter.rotate(-90);
+    //painter.drawText(0,(m_image.width()-fm.horizontalAdvance(strIntension))/2,strIntension);
+    painter.drawText(100,-50,strIntension);
+    painter.rotate(90);
+
+    // Flip the Y-axis so positive Y goes UP
+    painter.scale(1, -1);
+    painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
+
+    //x axis from (0,0) to (1000,0).
+    painter.drawLine(QPoint(0,0),QPoint(m_backgroundImg.width(),0));
+    //y axis from (0,0) to (0,65535).
+    painter.drawLine(QPoint(0,0),QPoint(0,m_backgroundImg.height()));
+
+
+    //draw scale every 10 pixels.
+    for(qint32 i=0, x_scale_begin=350, y_scale_begin=0;i<m_backgroundImg.width();i++)
+    {
+        if(i==0)
+        {
+            //for x axis: 350.
+            painter.save();
+            painter.translate(0,-10);
+            painter.scale(1, -1);
+            painter.rotate(-45.0);
+            int halfWidth=fm.horizontalAdvance(QString::number(x_scale_begin,10))/2;
+            painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.drawText(-halfWidth,/*yOffset*/20,QString("350"));
+            x_scale_begin+=5;
+            painter.restore();
+
+            //for y axis: 0.
+            painter.save();
+            painter.translate(-30,0);
+            painter.scale(1, -1);
+            painter.rotate(-30.0);
+            painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.drawText(0,0,QString("0"));
+            y_scale_begin+=5;
+            painter.restore();
+        }
+        else if((i+1)%5==0)
+        {
+            painter.setPen(QPen(Qt::red,2,Qt::DotLine));
+            //x scale.
+            painter.drawLine(QPoint((i+1)*10,0),QPoint((i+1)*10,15));
+
+            painter.save();
+            qint32 xText=(i+1)*10;
+            qint32 yText=-10;
+            painter.translate(xText,yText);
+            painter.scale(1, -1);
+            painter.rotate(-45.0);
+            int halfWidth=fm.horizontalAdvance(QString::number(x_scale_begin,10))/2;
+            int halfHeight=fm.height()/2;
+            int yOffset=fm.ascent()/2-fm.descent()/2;
+            painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.drawText(-halfWidth,/*yOffset*/20,QString::number(x_scale_begin,10));
+            x_scale_begin+=5;
+            painter.restore();
+
+            //y scale.
+            painter.drawLine(QPoint(0,(i+1)*10),QPoint(15,(i+1)*10));
+            painter.save();
+            qint32 xText2=-30;
+            qint32 yText2=(i+1)*10;
+            painter.translate(xText2,yText2);
+            painter.scale(1, -1);
+            painter.rotate(-30.0);
+            painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.drawText(0,0,QString::number(y_scale_begin,10));
+            y_scale_begin+=5;
+            painter.restore();
+        }else{
+            painter.setPen(QPen(Qt::red,1,Qt::SolidLine));
+            //x scale.
+            painter.drawLine(QPoint((i+1)*10,0),QPoint((i+1)*10,10));
+            //y scale.
+            painter.drawLine(QPoint(0,(i+1)*10),QPoint(10,(i+1)*10));
+        }
+    }
+}
+void ZUartParser::drawForeground(qint32 max_x, qint32 max_y, const QByteArray &data_array, quint32 index, quint32 point_count)
 {
     // QImage image(width+100,height+100,QImage::Format_ARGB32);
     // image.fill(Qt::white);
 
-    QPainter painter(&m_image);
-    painter.setPen(QPen(Qt::red,6,Qt::SolidLine));
-    // 1. Translate origin so that logical (0,0) is at pixel (0, height - 100)
-    // This effectively makes the bottom of the image correspond to logical y = -100
-    painter.translate(0, m_image.height() - 100);
+    // QFont font("DejaVu Serif",12);
+    // QFontMetrics fm(font);
 
-    // 2. Flip the Y-axis so positive Y goes UP
+    // QPainter painter(&m_image);
+    // painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
+    // painter.setFont(font);
+    // // Translate origin so that logical (0,0) is at pixel (0, height - 100)
+    // // This effectively makes the bottom of the image correspond to logical y = -100
+    // painter.translate(70, m_image.height()-70);
+
+    // //draw horizontal legend.
+    // QString strWaveRange("Supported waveform range (nanometer scale)");
+    // qint32 strWaveRangeWidth=fm.horizontalAdvance(strWaveRange); // /2.
+    // painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+    // painter.setRenderHint(QPainter::Antialiasing);
+    // painter.drawText((m_image.width()-strWaveRangeWidth)/2,60,strWaveRange);
+
+    // //draw vertical legend.
+    // QString strIntension("Light intension (0~65535)");
+    // painter.rotate(-90);
+    // //painter.drawText(0,(m_image.width()-fm.horizontalAdvance(strIntension))/2,strIntension);
+    // painter.drawText(100,-50,strIntension);
+    // painter.rotate(90);
+
+    // // Flip the Y-axis so positive Y goes UP
+    // painter.scale(1, -1);
+    // painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
+
+    // //x axis from (0,0) to (1000,0).
+    // painter.drawLine(QPoint(0,0),QPoint(m_image.width(),0));
+    // //y axis from (0,0) to (0,65535).
+    // painter.drawLine(QPoint(0,0),QPoint(0,m_image.height()));
+
+
+    // //draw scale every 10 pixels.
+    // for(qint32 i=0, x_scale_begin=350, y_scale_begin=0;i<m_image.width();i++)
+    // {
+    //     if(i==0)
+    //     {
+    //         //for x axis: 350.
+    //         painter.save();
+    //         painter.translate(0,-10);
+    //         painter.scale(1, -1);
+    //         painter.rotate(-45.0);
+    //         int halfWidth=fm.horizontalAdvance(QString::number(x_scale_begin,10))/2;
+    //         painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+    //         painter.setRenderHint(QPainter::Antialiasing);
+    //         painter.drawText(-halfWidth,/*yOffset*/20,QString("350"));
+    //         x_scale_begin+=5;
+    //         painter.restore();
+
+    //         //for y axis: 0.
+    //         painter.save();
+    //         painter.translate(-30,0);
+    //         painter.scale(1, -1);
+    //         painter.rotate(-30.0);
+    //         painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+    //         painter.setRenderHint(QPainter::Antialiasing);
+    //         painter.drawText(0,0,QString("0"));
+    //         y_scale_begin+=5;
+    //         painter.restore();
+    //     }
+    //     else if((i+1)%5==0)
+    //     {
+    //         painter.setPen(QPen(Qt::red,2,Qt::DotLine));
+    //         //x scale.
+    //         painter.drawLine(QPoint((i+1)*10,0),QPoint((i+1)*10,15));
+
+    //         painter.save();
+    //         qint32 xText=(i+1)*10;
+    //         qint32 yText=-10;
+    //         painter.translate(xText,yText);
+    //         painter.scale(1, -1);
+    //         painter.rotate(-45.0);
+    //         int halfWidth=fm.horizontalAdvance(QString::number(x_scale_begin,10))/2;
+    //         int halfHeight=fm.height()/2;
+    //         int yOffset=fm.ascent()/2-fm.descent()/2;
+    //         painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+    //         painter.setRenderHint(QPainter::Antialiasing);
+    //         painter.drawText(-halfWidth,/*yOffset*/20,QString::number(x_scale_begin,10));
+    //         x_scale_begin+=5;
+    //         painter.restore();
+
+    //         //y scale.
+    //         painter.drawLine(QPoint(0,(i+1)*10),QPoint(15,(i+1)*10));
+    //         painter.save();
+    //         qint32 xText2=-30;
+    //         qint32 yText2=(i+1)*10;
+    //         painter.translate(xText2,yText2);
+    //         painter.scale(1, -1);
+    //         painter.rotate(-30.0);
+    //         painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+    //         painter.setRenderHint(QPainter::Antialiasing);
+    //         painter.drawText(0,0,QString::number(y_scale_begin,10));
+    //         y_scale_begin+=5;
+    //         painter.restore();
+    //     }else{
+    //         painter.setPen(QPen(Qt::red,1,Qt::SolidLine));
+    //         //x scale.
+    //         painter.drawLine(QPoint((i+1)*10,0),QPoint((i+1)*10,10));
+    //         //y scale.
+    //         painter.drawLine(QPoint(0,(i+1)*10),QPoint(10,(i+1)*10));
+    //     }
+    // }
+
+    //move (0,0) to a new position.
+    //so we can only update the specified area. (points area) to save time while painting.
+    QPainter painter(&m_foregroundImg);
+    painter.translate(70, m_foregroundImg.height()-70);
+    // Flip the Y-axis so positive Y goes UP
     painter.scale(1, -1);
 
+    //draw points and lines.
+    painter.setPen(QPen(Qt::green,2,Qt::SolidLine));
     QVector<QPoint> points;
     QVector<QLine> lines;
     QPoint pt1;
@@ -528,18 +765,30 @@ void ZUartParser::drawImage(qint32 width, qint32 height, const QByteArray &data_
         temp82=static_cast<quint8>(data_array.at(data_index+1));
         temp16=(static_cast<quint16>(temp82)<<8)|(static_cast<quint16>(temp81)<<0);
         data_index+=2;
+
+        //original.
         QPoint pt2=QPoint(i,temp16);
-        points.append(pt2);
+        // points.append(pt2);
+        // if(i!=0)
+        // {
+        //     lines.append(QLine(pt1,pt2));
+        // }
+        // pt1=pt2;
+
+        //scaled image.
+        QPoint pt3=QPoint(i*m_xScale,temp16*m_yScale);
+        //statusMessage(QString("(%1,%2)*(%3,%4)=(%5,%6)").arg(pt2.x()).arg(pt2.y()).arg(m_xScale).arg(m_yScale).arg(pt3.x()).arg(pt3.y()));
+        points.append(pt3);
         if(i!=0)
         {
-            lines.append(QLine(pt1,pt2));
+            lines.append(QLine(pt1,pt3));
         }
-        pt1=pt2;
+        pt1=pt3;
     }
     //painter.drawPoints(points.data(),points.size());
     painter.drawLines(lines);
     painter.end();
-    emit newImage(m_image);
+
 
     // QFile file("read_spectrum.dat");
     // if(file.open(QIODevice::WriteOnly|QIODevice::Text))
