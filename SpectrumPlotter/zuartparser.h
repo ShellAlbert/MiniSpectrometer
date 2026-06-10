@@ -7,6 +7,7 @@
 #include <QImage>
 #include <QDebug>
 #include "zringbuffer.h"
+#include "zsingleframe.h"
 
 class ZUartParser : public QObject {
     Q_OBJECT
@@ -25,22 +26,30 @@ signals:
     void statusMessage(const QString &message);
     void frameReceived(const QByteArray &payload);
     void spectrumRange(const QString &start, const QString &end);
-    void newImage(const QImage &backgroundImg,const QImage &foregroundImage);
+    void newImage(const QImage &backgroundImg,const QImage &foregroundImage, const QRect &validRect);
 private:
-    void drawBackground();
-    void drawForeground(qint32 max_x, qint32 max_y, const QByteArray &data_array, quint32 index, quint32 point_count);
+    void drawBackground(QImage &img);
+    void drawForeground(QImage &img, qint32 max_x, qint32 max_y, const QByteArray &data_array, quint32 index, quint32 point_count);
 private:
     ZRingBuffer *m_ringBuffer;
     QTimer m_timer;
-    QImage m_image;
-    QImage m_backgroundImg;
-    QImage m_foregroundImg;
-
-    QSize m_canvasSize;
-    qreal m_xScale;
-    qreal m_yScale;
 
     quint8 m_verbose;
+    quint32 m_cntSpectrum;
+
+    //canvas size changed.
+    //scale image to adapt to new canvas.
+    QSize m_canvasSize;
+
+    //the mimum and maximum of X and Y in single image.
+    qint32 m_maxX;
+    qint32 m_maxY;
+
+    QImage m_backImg;
+    QImage m_foreImg;
+
+    //curve history.
+    QVector<ZSingleFrame> m_vector;
 };
 
 #endif // PROTOCOLPARSER_H

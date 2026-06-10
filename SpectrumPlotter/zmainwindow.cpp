@@ -26,7 +26,6 @@ ZMainWindow::ZMainWindow(QWidget *parent)
     //parse thread, runs in main thread for easy UI updates.
     m_uartParser=new ZUartParser(m_ringBuffer,this);
     connect(m_uartParser,&ZUartParser::spectrumRange,this,&ZMainWindow::onSpectrumRange);
-    connect(m_uartParser,&ZUartParser::frameReceived,this,&ZMainWindow::onNewFrame);
     connect(m_uartParser,&ZUartParser::errorMessage,this,&ZMainWindow::onMessage);
     connect(m_uartParser,&ZUartParser::statusMessage,this,&ZMainWindow::onMessage);
     connect(m_uartParser,&ZUartParser::newImage,this,&ZMainWindow::onNewImage);
@@ -40,7 +39,9 @@ ZMainWindow::ZMainWindow(QWidget *parent)
     m_ll=new QLabel;
     m_ll->setMinimumSize(600,300);
     //scale QImage in working thread for high efficiency.
-    // m_ll->setScaledContents(true);
+    //m_ll->setScaledContents(true);
+
+
     m_vlayoutScrollArea=new QVBoxLayout;
     m_vlayoutScrollArea->addWidget(m_ll);
     QWidget *m_scrollAreaWidget=new QWidget(this);
@@ -82,7 +83,7 @@ ZMainWindow::ZMainWindow(QWidget *parent)
     m_spliter=new QSplitter(Qt::Vertical);
     m_spliter->addWidget(m_scrollArea);
     m_spliter->addWidget(m_teLog);
-    // m_spliter->setStretchFactor(0,9);
+    // m_spliter->setStretchFactor(0,4);
     // m_spliter->setStretchFactor(1,1);
 
     m_vLayoutMain->addWidget(m_spliter);
@@ -91,6 +92,7 @@ ZMainWindow::ZMainWindow(QWidget *parent)
     connect(m_tbGetRange,&QToolButton::clicked,this,&ZMainWindow::onSendClicked);
     connect(m_tbGetSpectrum,&QToolButton::clicked,this,&ZMainWindow::onGetSpectrum);
     connect(m_cbVerbose,&QCheckBox::checkStateChanged, m_uartParser,&ZUartParser::verboseMode);
+    connect(m_cbVerbose,&QCheckBox::checkStateChanged, m_uartWorker,&ZUartWorker::verboseMode);
     connect(m_cbPeriodically,&QCheckBox::checkStateChanged,this,&ZMainWindow::onPeriodically);
 
     connect(this,&ZMainWindow::sendCommand,m_uartWorker,&ZUartWorker::sendData);
@@ -121,9 +123,9 @@ void ZMainWindow::onPeriodically(Qt::CheckState state)
         {
             m_timer=new QTimer(this);
             connect(m_timer,&QTimer::timeout,this,&ZMainWindow::onTimeout);
-            onMessage(tr("Read spectrum periodically started, 2000ms."));
+            onMessage(tr("Read spectrum periodically started, 50ms."));
             m_cntPeriodically=0;
-            m_timer->start(20);
+            m_timer->start(50);
         }
     }else{
         m_timer->stop();
@@ -138,15 +140,7 @@ void ZMainWindow::onTimeout()
     m_cntPeriodically++;
     m_llCounts->setText(QString::number(m_cntPeriodically,10));
 }
-void ZMainWindow::resizeEvent(QResizeEvent *e)
-{
-    Q_UNUSED(e);
-    if(m_uartParser)
-    {
-        m_uartParser->updateCanvasSize(QSize(m_ll->width(),m_ll->height()));
-    }
-    onMessage(QString("Canvas:%1*%2").arg(m_ll->width()).arg(m_ll->height()));
-}
+
 void ZMainWindow::onConnectClicked()
 {
     QMetaObject::invokeMethod(m_uartWorker,"initPort",
@@ -208,24 +202,24 @@ void ZMainWindow::onMessage(const QString &message)
     cursor.insertText(message+"\n");
     m_teLog->verticalScrollBar()->setValue(0);
 }
-void ZMainWindow::onNewImage(const QImage &backgroundImg, const QImage &foregroundImage)
+void ZMainWindow::onNewImage(const QImage &backgroundImg, const QImage &foregroundImg, const QRect &validRect)
 {
     QImage img(backgroundImg.size(),QImage::Format_ARGB32_Premultiplied);
     img.fill(Qt::transparent);
     QPainter painter(&img);
     painter.setRenderHint(QPainter::Antialiasing);
+
+    //image will be scaled while painting.
+    QRect targetRect(0,0,m_ll->width(),m_ll->height());
+
     painter.drawImage(0,0,backgroundImg);
-    painter.drawImage(10,-70,foregroundImage);
+    painter.drawImage(0,0,foregroundImg);
     painter.end();
     QPixmap pixmap=QPixmap::fromImage(img);
+    m_ll->setMinimumSize(img.size());
     m_ll->setPixmap(pixmap);
 }
-void ZMainWindow::onNewFrame(const QByteArray &payload)
-{
-    qDebug()<<"Valid New Frame:\n";
-    qDebug()<<payload.toHex()<<"\n";
 
-}
 void ZMainWindow::onPortStatusChanged(bool isOpen)
 {
     if (isOpen) {
@@ -239,4 +233,12 @@ void ZMainWindow::onPortStatusChanged(bool isOpen)
             m_workerThread = nullptr;
         }
     }
+}
+void ZMainWindow::resizeEvent(QResizeEvent *e)
+{
+    if(m_uartParser)
+    {
+        m_uartParser->updateCanvasSize(m_ll->size());
+    }
+    QMainWindow::resizeEvent(e);
 }

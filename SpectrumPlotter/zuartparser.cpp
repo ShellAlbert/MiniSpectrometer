@@ -8,20 +8,12 @@
 ZUartParser::ZUartParser(ZRingBuffer *buffer, QObject *parent)
     : QObject(parent), m_ringBuffer(buffer)
 {
-
-
     // Poll the buffer every 10ms to check for complete frames
     m_timer.setInterval(10);
     connect(&m_timer, &QTimer::timeout, this, &ZUartParser::parseLoop);
     m_timer.start();
 
     m_verbose=0;
-    //supported range: 350nm~1050nm
-    //x axis range is 1050-350=700.
-    //y axis range is 0~0xFFFF.
-    m_canvasSize=QSize(700,0xFFFF);
-    m_xScale=1.0f;
-    m_yScale=1.0f;
 }
 void ZUartParser::verboseMode(Qt::CheckState state)
 {
@@ -35,15 +27,6 @@ void ZUartParser::verboseMode(Qt::CheckState state)
 void ZUartParser::updateCanvasSize(QSize newCanvasSize)
 {
     m_canvasSize=newCanvasSize;
-    //350nm~1050nm.
-    m_xScale=(newCanvasSize.width()/(1050.0-350.0));
-    //2^16-1=65535.
-    m_yScale=(newCanvasSize.height()/65535.0);
-
-    m_backgroundImg=QImage(m_canvasSize.width(),m_canvasSize.height(),QImage::Format_ARGB32);
-    m_foregroundImg=QImage(m_canvasSize.width(),m_canvasSize.height(),QImage::Format_ARGB32);
-
-    m_foregroundImg.fill(Qt::transparent);
 }
 void ZUartParser::parseLoop() {
     while (true) {
@@ -150,11 +133,14 @@ void ZUartParser::parseLoop() {
             index+=1;
             //exposure state: 1 byte.
             temp81=static_cast<quint8>(frame.at(index));
-            emit statusMessage("Exposure state "+QString::number(temp81,16).toUpper());
+            if(m_verbose)
+            {
+                emit statusMessage("Exposure state "+QString::number(temp81,16).toUpper());
+            }
             index+=1;
             \
-                //exposure time. 4 bytes.
-                temp81=static_cast<quint8>(frame.at(index+0));
+            //exposure time. 4 bytes.
+            temp81=static_cast<quint8>(frame.at(index+0));
             temp82=static_cast<quint8>(frame.at(index+1));
             temp83=static_cast<quint8>(frame.at(index+2));
             temp84=static_cast<quint8>(frame.at(index+3));
@@ -162,7 +148,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            emit statusMessage("Exposure time "+QString::number(temp32,10).toUpper()+ "us.");
+            if(m_verbose)
+            {
+                emit statusMessage("Exposure time "+QString::number(temp32,10).toUpper()+ "us.");
+            }
             index+=4;
 
             //photometric parameters, 27*float.
@@ -175,7 +164,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("cct: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("cct: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //lux.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -186,7 +178,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("lux: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("lux: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //ee.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -197,7 +192,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("ee: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("ee: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r1.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -208,7 +206,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r1: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r1: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r2.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -219,7 +220,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r2: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r2: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r3.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -230,7 +234,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r3: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r3: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r4.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -241,7 +248,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r4: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r4: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r5.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -252,7 +262,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r5: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r5: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r6.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -263,7 +276,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r6: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r6: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r7.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -274,7 +290,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r7: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r7: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r8.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -285,7 +304,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r8: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r8: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r9.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -296,7 +318,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r9: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r9: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r10.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -307,7 +332,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r10: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r10: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r11.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -318,7 +346,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r11: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r11: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r12.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -329,7 +360,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r12: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r12: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r13.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -340,7 +374,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r13: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r13: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r14.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -351,7 +388,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r14: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r14: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //r15.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -362,7 +402,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("r15: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("r15: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //ra.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -373,7 +416,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("ra: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("ra: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //X.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -384,7 +430,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("X: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("X: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //Y.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -395,7 +444,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("Y: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("Y: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //Z.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -406,7 +458,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("Z: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("Z: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //duv.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -417,7 +472,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("duv: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("duv: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //u.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -428,7 +486,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("u: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("u: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //v.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -439,7 +500,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("v: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("v: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //x.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -450,7 +514,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("x: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("x: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             //y.
             temp81=static_cast<quint8>(frame.at(index+0));
@@ -461,7 +528,10 @@ void ZUartParser::parseLoop() {
                      (static_cast<quint32>(temp83)<<16)|
                      (static_cast<quint32>(temp82)<<8)|
                      (static_cast<quint32>(temp81)<<0);
-            message+=("y: "+QString::number(temp32,16).toUpper()+ ",");
+            if(m_verbose)
+            {
+                message+=("y: "+QString::number(temp32,16).toUpper()+ ",");
+            }
             index+=4;
             if(m_verbose){
                 emit statusMessage(message);
@@ -471,7 +541,10 @@ void ZUartParser::parseLoop() {
             temp81=static_cast<quint8>(frame.at(index+0));
             temp82=static_cast<quint8>(frame.at(index+1));
             temp16=(static_cast<quint16>(temp82)<<8)|(static_cast<quint16>(temp81)<<0);
-            emit statusMessage("coefficient: "+QString::number(temp16,10).toUpper());
+            if(m_verbose)
+            {
+                emit statusMessage("coefficient: "+QString::number(temp16,10).toUpper());
+            }
             index+=2;
 
             //remember photometric data start offset.
@@ -481,9 +554,12 @@ void ZUartParser::parseLoop() {
             //2+3+1+1+4+27*4+2+1+2=124
             quint32 photo_data_len=totalFrameSize-124;
             quint32 photo_data_count=photo_data_len/sizeof(quint16);
+            m_cntSpectrum=photo_data_count;
 
             //scan all data to find out the maximum value.
-            quint16 maxY=0;
+            //extend X axis.
+            m_maxX=((quint32)(m_canvasSize.width())>photo_data_count)?(m_canvasSize.width()):(photo_data_count);
+            m_maxY=0;
 
             for(quint32 i=0;i<photo_data_count; i++)
             {
@@ -494,30 +570,55 @@ void ZUartParser::parseLoop() {
                     emit statusMessage(QString::number(i,10)+":"+QString::number(temp16,10));
                 }
                 index+=2;
-
-                maxY=(temp16>maxY)?(temp16):(maxY);
+                //update maximum Y.
+                m_maxY=(temp16>m_maxY)?(temp16):(m_maxY);
             }
 
             //draw background image and foreground image.
-            drawBackground();
-            drawForeground(photo_data_count,maxY,frame,photometric_data_offset,photo_data_count);
-            emit newImage(m_backgroundImg,m_foregroundImg);
+            if(m_backImg.size()!=QSize(m_canvasSize.width()+100,m_canvasSize.height()+100))
+            {
+                m_backImg=QImage(m_canvasSize.width()+100,m_canvasSize.height()+100,QImage::Format_ARGB32); //extend +100 pixels.
+                m_backImg.fill(Qt::black);
+                drawBackground(m_backImg);
+                emit statusMessage(QString("new background image size: %1x%2").arg(m_maxX).arg(m_maxY));
 
+            }
+            if(m_foreImg.size()!=QSize(m_canvasSize.width()+100,m_canvasSize.height()+100))
+            {
+                m_foreImg=QImage(m_canvasSize.width()+100,m_canvasSize.height()+100,QImage::Format_ARGB32); //extend +100 pixels.
+                m_foreImg.fill(Qt::transparent);
+                emit statusMessage(QString("new foreground image size: %1x%2").arg(m_maxX).arg(m_maxY));
+            }
+            drawForeground(m_foreImg,photo_data_count,m_maxY,frame,photometric_data_offset,photo_data_count);
+
+            //emit to UI thread.
+            //Warning Here!!!!
+            //the coordinate (0,0) is located at the top-left corner!!!!!
+            //x axis increases torward to right.
+            //y axis increases torward to down.
+            QRect validRect(0,65535-m_maxY,(1050-350),m_maxY);
+            emit newImage(m_backImg,m_foreImg,validRect);
 
             //checksum. 1 byte.
             temp81=static_cast<quint8>(frame.at(index+0));
-            emit statusMessage("checksum: "+QString::number(temp81,16).toUpper());
+            if(m_verbose)
+            {
+                emit statusMessage("checksum: "+QString::number(temp81,16).toUpper());
+            }
             index+=1;
 
             //tailer. 2 bytes.
             temp81=static_cast<quint8>(frame.at(index+0));
             temp82=static_cast<quint8>(frame.at(index+1));
             temp16=(static_cast<quint16>(temp81)<<8)|(static_cast<quint16>(temp82)<<0);
-            emit statusMessage("tailer: "+QString::number(temp16,16).toUpper());
+            if(m_verbose)
+            {
+                emit statusMessage("tailer: "+QString::number(temp16,16).toUpper());
+            }
             break;
         }
         default:
-            emit errorMessage("Unknown command type "+QString::number(frameType,16).toUpper()+".");
+            emit errorMessage("Unknown command type "+QString::number(frameType,16).toUpper()+","+frame.toHex());
             break;
         }
 
@@ -525,29 +626,27 @@ void ZUartParser::parseLoop() {
         m_ringBuffer->consume(totalFrameSize);
     }
 }
-void ZUartParser::drawBackground()
+void ZUartParser::drawBackground(QImage &img)
 {
-    m_backgroundImg.fill(Qt::black);
-
     QFont font("DejaVu Serif",12);
     QFontMetrics fm(font);
 
-    QPainter painter(&m_backgroundImg);
+    QPainter painter(&img);
     painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
     painter.setFont(font);
     // Translate origin so that logical (0,0) is at pixel (0, height - 100)
     // This effectively makes the bottom of the image correspond to logical y = -100
-    painter.translate(70, m_backgroundImg.height()-70);
+    painter.translate(70, img.height()-70);
 
     //draw horizontal legend.
-    QString strWaveRange("Supported waveform range (nanometer scale)");
+    QString strWaveRange("Supported waveform range (nanometer scale 350nm ~ 1050nm)");
     qint32 strWaveRangeWidth=fm.horizontalAdvance(strWaveRange); // /2.
     painter.setPen(QPen(Qt::white,2,Qt::DotLine));
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.drawText((m_backgroundImg.width()-strWaveRangeWidth)/2,60,strWaveRange);
+    painter.drawText((img.width()-strWaveRangeWidth)/2,60,strWaveRange);
 
     //draw vertical legend.
-    QString strIntension("Light intension (0~65535)");
+    QString strIntension("Light intensity ( 0 ~ 2^16-1 )");
     painter.rotate(-90);
     //painter.drawText(0,(m_image.width()-fm.horizontalAdvance(strIntension))/2,strIntension);
     painter.drawText(100,-50,strIntension);
@@ -557,30 +656,68 @@ void ZUartParser::drawBackground()
     painter.scale(1, -1);
     painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
 
-    //x axis from (0,0) to (1000,0).
-    painter.drawLine(QPoint(0,0),QPoint(m_backgroundImg.width(),0));
-    //y axis from (0,0) to (0,65535).
-    painter.drawLine(QPoint(0,0),QPoint(0,m_backgroundImg.height()));
+    //x axis draw line from (0,0) to (1000,0).
+    painter.drawLine(QPoint(0,0),QPoint(img.width()-20,0));
+    //draw arrow.
+    //painter.drawLine(QPoint(img.width()-20-200,0),QPoint(img.width()-20-250,25)); //because image was extended +100 pixels.
+    //painter.drawLine(QPoint(img.width()-20-200,0),QPoint(img.width()-20-250,-25));
+    //y axis draw line from (0,0) to (0,65535).
+    painter.drawLine(QPoint(0,0),QPoint(0,img.height()-20));
+    //draw arrow.
+    //painter.drawLine(QPoint(0,img.height()-20-100),QPoint(-25,img.height()-20-150));
+    //painter.drawLine(QPoint(0,img.height()-20-100),QPoint(25,img.height()-20-150));
 
-
-    //draw scale every 10 pixels.
-    for(qint32 i=0, x_scale_begin=350, y_scale_begin=0;i<m_backgroundImg.width();i++)
+    //draw scale every 10 pixels. //(1050-350)/10=700/10=70.
+    //350,360,370,380,390,400,410,420,430,440,.......1050.
+    //totally draw 70 thick lines.
+    qint32 pixelGap=(img.width()-100)/70; //subtract extended 100 pixels.
+    for(qint32 i=0, x_nm_begin=350; i<=70; i++)
     {
-        if(i==0)
+        qint32 xDest=i*pixelGap;
+        if(0==i) //(0,0)
         {
-            //for x axis: 350.
+            //draw x axis text.
             painter.save();
             painter.translate(0,-10);
             painter.scale(1, -1);
             painter.rotate(-45.0);
-            int halfWidth=fm.horizontalAdvance(QString::number(x_scale_begin,10))/2;
+            int halfWidth=fm.horizontalAdvance(QString::number(x_nm_begin,10))/2;
+            int halfHeight=fm.height()/2;
+            int yOffset=fm.ascent()/2-fm.descent()/2;
             painter.setPen(QPen(Qt::white,2,Qt::DotLine));
             painter.setRenderHint(QPainter::Antialiasing);
-            painter.drawText(-halfWidth,/*yOffset*/20,QString("350"));
-            x_scale_begin+=5;
+            painter.drawText(-halfWidth,/*yOffset*/20,QString::number(x_nm_begin,10));
+            x_nm_begin+=10;
             painter.restore();
 
-            //for y axis: 0.
+        }else{
+            //draw thick lines.
+            painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
+            painter.drawLine(QPoint(xDest,0),QPoint(xDest,15));
+
+            //draw text.
+            painter.save();
+            painter.translate(xDest,-10);
+            painter.scale(1, -1);
+            painter.rotate(-45.0);
+            int halfWidth=fm.horizontalAdvance(QString::number(x_nm_begin,10))/2;
+            int halfHeight=fm.height()/2;
+            int yOffset=fm.ascent()/2-fm.descent()/2;
+            painter.setPen(QPen(Qt::white,2,Qt::DotLine));
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.drawText(-halfWidth,/*yOffset*/20,QString::number(x_nm_begin,10));
+            x_nm_begin+=10;
+            painter.restore();
+        }
+    }
+    //draw y axis. only draw 10 gaps totally.
+    //mean light intensity ranges from 0~100, each gap is 10.
+    qint32 gapYAxis=(img.height()-100)/10; //subtract extended 100 pixels.
+    for(qint32 i=0,y_nm_begin=0; i<=10; i++)
+    {
+        qint32 yDest=i*gapYAxis;
+        if(0==yDest) //(0,0)
+        {
             painter.save();
             painter.translate(-30,0);
             painter.scale(1, -1);
@@ -588,173 +725,48 @@ void ZUartParser::drawBackground()
             painter.setPen(QPen(Qt::white,2,Qt::DotLine));
             painter.setRenderHint(QPainter::Antialiasing);
             painter.drawText(0,0,QString("0"));
-            y_scale_begin+=5;
+            y_nm_begin+=10;
             painter.restore();
-        }
-        else if((i+1)%5==0)
-        {
-            painter.setPen(QPen(Qt::red,2,Qt::DotLine));
-            //x scale.
-            painter.drawLine(QPoint((i+1)*10,0),QPoint((i+1)*10,15));
+        }else{
+            //draw thick lines.
+            painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
+            painter.drawLine(QPoint(-10,yDest),QPoint(0,yDest));
 
+            //draw text.
             painter.save();
-            qint32 xText=(i+1)*10;
-            qint32 yText=-10;
-            painter.translate(xText,yText);
-            painter.scale(1, -1);
-            painter.rotate(-45.0);
-            int halfWidth=fm.horizontalAdvance(QString::number(x_scale_begin,10))/2;
-            int halfHeight=fm.height()/2;
-            int yOffset=fm.ascent()/2-fm.descent()/2;
-            painter.setPen(QPen(Qt::white,2,Qt::DotLine));
-            painter.setRenderHint(QPainter::Antialiasing);
-            painter.drawText(-halfWidth,/*yOffset*/20,QString::number(x_scale_begin,10));
-            x_scale_begin+=5;
-            painter.restore();
-
-            //y scale.
-            painter.drawLine(QPoint(0,(i+1)*10),QPoint(15,(i+1)*10));
-            painter.save();
-            qint32 xText2=-30;
-            qint32 yText2=(i+1)*10;
-            painter.translate(xText2,yText2);
+            painter.translate(-30,yDest);
             painter.scale(1, -1);
             painter.rotate(-30.0);
             painter.setPen(QPen(Qt::white,2,Qt::DotLine));
             painter.setRenderHint(QPainter::Antialiasing);
-            painter.drawText(0,0,QString::number(y_scale_begin,10));
-            y_scale_begin+=5;
+            painter.drawText(0,0,QString::number(y_nm_begin,10));
+            y_nm_begin+=10;
             painter.restore();
-        }else{
-            painter.setPen(QPen(Qt::red,1,Qt::SolidLine));
-            //x scale.
-            painter.drawLine(QPoint((i+1)*10,0),QPoint((i+1)*10,10));
-            //y scale.
-            painter.drawLine(QPoint(0,(i+1)*10),QPoint(10,(i+1)*10));
         }
     }
 }
-void ZUartParser::drawForeground(qint32 max_x, qint32 max_y, const QByteArray &data_array, quint32 index, quint32 point_count)
+void ZUartParser::drawForeground(QImage &img, qint32 max_x, qint32 max_y, const QByteArray &data_array, quint32 index, quint32 point_count)
 {
-    // QImage image(width+100,height+100,QImage::Format_ARGB32);
-    // image.fill(Qt::white);
-
-    // QFont font("DejaVu Serif",12);
-    // QFontMetrics fm(font);
-
-    // QPainter painter(&m_image);
-    // painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
-    // painter.setFont(font);
-    // // Translate origin so that logical (0,0) is at pixel (0, height - 100)
-    // // This effectively makes the bottom of the image correspond to logical y = -100
-    // painter.translate(70, m_image.height()-70);
-
-    // //draw horizontal legend.
-    // QString strWaveRange("Supported waveform range (nanometer scale)");
-    // qint32 strWaveRangeWidth=fm.horizontalAdvance(strWaveRange); // /2.
-    // painter.setPen(QPen(Qt::white,2,Qt::DotLine));
-    // painter.setRenderHint(QPainter::Antialiasing);
-    // painter.drawText((m_image.width()-strWaveRangeWidth)/2,60,strWaveRange);
-
-    // //draw vertical legend.
-    // QString strIntension("Light intension (0~65535)");
-    // painter.rotate(-90);
-    // //painter.drawText(0,(m_image.width()-fm.horizontalAdvance(strIntension))/2,strIntension);
-    // painter.drawText(100,-50,strIntension);
-    // painter.rotate(90);
-
-    // // Flip the Y-axis so positive Y goes UP
-    // painter.scale(1, -1);
-    // painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
-
-    // //x axis from (0,0) to (1000,0).
-    // painter.drawLine(QPoint(0,0),QPoint(m_image.width(),0));
-    // //y axis from (0,0) to (0,65535).
-    // painter.drawLine(QPoint(0,0),QPoint(0,m_image.height()));
-
-
-    // //draw scale every 10 pixels.
-    // for(qint32 i=0, x_scale_begin=350, y_scale_begin=0;i<m_image.width();i++)
-    // {
-    //     if(i==0)
-    //     {
-    //         //for x axis: 350.
-    //         painter.save();
-    //         painter.translate(0,-10);
-    //         painter.scale(1, -1);
-    //         painter.rotate(-45.0);
-    //         int halfWidth=fm.horizontalAdvance(QString::number(x_scale_begin,10))/2;
-    //         painter.setPen(QPen(Qt::white,2,Qt::DotLine));
-    //         painter.setRenderHint(QPainter::Antialiasing);
-    //         painter.drawText(-halfWidth,/*yOffset*/20,QString("350"));
-    //         x_scale_begin+=5;
-    //         painter.restore();
-
-    //         //for y axis: 0.
-    //         painter.save();
-    //         painter.translate(-30,0);
-    //         painter.scale(1, -1);
-    //         painter.rotate(-30.0);
-    //         painter.setPen(QPen(Qt::white,2,Qt::DotLine));
-    //         painter.setRenderHint(QPainter::Antialiasing);
-    //         painter.drawText(0,0,QString("0"));
-    //         y_scale_begin+=5;
-    //         painter.restore();
-    //     }
-    //     else if((i+1)%5==0)
-    //     {
-    //         painter.setPen(QPen(Qt::red,2,Qt::DotLine));
-    //         //x scale.
-    //         painter.drawLine(QPoint((i+1)*10,0),QPoint((i+1)*10,15));
-
-    //         painter.save();
-    //         qint32 xText=(i+1)*10;
-    //         qint32 yText=-10;
-    //         painter.translate(xText,yText);
-    //         painter.scale(1, -1);
-    //         painter.rotate(-45.0);
-    //         int halfWidth=fm.horizontalAdvance(QString::number(x_scale_begin,10))/2;
-    //         int halfHeight=fm.height()/2;
-    //         int yOffset=fm.ascent()/2-fm.descent()/2;
-    //         painter.setPen(QPen(Qt::white,2,Qt::DotLine));
-    //         painter.setRenderHint(QPainter::Antialiasing);
-    //         painter.drawText(-halfWidth,/*yOffset*/20,QString::number(x_scale_begin,10));
-    //         x_scale_begin+=5;
-    //         painter.restore();
-
-    //         //y scale.
-    //         painter.drawLine(QPoint(0,(i+1)*10),QPoint(15,(i+1)*10));
-    //         painter.save();
-    //         qint32 xText2=-30;
-    //         qint32 yText2=(i+1)*10;
-    //         painter.translate(xText2,yText2);
-    //         painter.scale(1, -1);
-    //         painter.rotate(-30.0);
-    //         painter.setPen(QPen(Qt::white,2,Qt::DotLine));
-    //         painter.setRenderHint(QPainter::Antialiasing);
-    //         painter.drawText(0,0,QString::number(y_scale_begin,10));
-    //         y_scale_begin+=5;
-    //         painter.restore();
-    //     }else{
-    //         painter.setPen(QPen(Qt::red,1,Qt::SolidLine));
-    //         //x scale.
-    //         painter.drawLine(QPoint((i+1)*10,0),QPoint((i+1)*10,10));
-    //         //y scale.
-    //         painter.drawLine(QPoint(0,(i+1)*10),QPoint(10,(i+1)*10));
-    //     }
-    // }
-
     //move (0,0) to a new position.
     //so we can only update the specified area. (points area) to save time while painting.
-    QPainter painter(&m_foregroundImg);
-    painter.translate(70, m_foregroundImg.height()-70);
+    QPainter painter(&img);
+    //the image is extended by (+100,+100). here 70 pixels are acceptable.
+    painter.translate(70, img.height()-70);
     // Flip the Y-axis so positive Y goes UP
     painter.scale(1, -1);
 
+
+    //add curve to history vector.
+    ZSingleFrame myFrame;
+
+    //normalize data before drawing.
+    qreal xScaleFactor=(img.width()-100)/(qreal)(max_x);
+    qreal yScaleFactor=(img.height()-100)/(qreal)(max_y);
+
     //draw points and lines.
     painter.setPen(QPen(Qt::green,2,Qt::SolidLine));
-    QVector<QPoint> points;
-    QVector<QLine> lines;
+    // QVector<QPoint> points;
+    // QVector<QLine> lines;
     QPoint pt1;
     quint32 data_index=index;
     for(quint32 i=0;i<point_count; i++)
@@ -775,20 +787,37 @@ void ZUartParser::drawForeground(qint32 max_x, qint32 max_y, const QByteArray &d
         // }
         // pt1=pt2;
 
-        //scaled image.
-        QPoint pt3=QPoint(i*m_xScale,temp16*m_yScale);
-        //statusMessage(QString("(%1,%2)*(%3,%4)=(%5,%6)").arg(pt2.x()).arg(pt2.y()).arg(m_xScale).arg(m_yScale).arg(pt3.x()).arg(pt3.y()));
-        points.append(pt3);
+        //scale image in working thread to prevent UI zombie state.
+        QPoint pt3=QPoint(i*xScaleFactor,temp16*yScaleFactor);
+        //statusMessage(QString("(%1,%2)*(%3,%4)=(%5,%6)").arg(pt2.x()).arg(pt2.y()).arg(xScaleFactor).arg(yScaleFactor).arg(pt3.x()).arg(pt3.y()));
+        // points.append(pt3);
         if(i!=0)
         {
-            lines.append(QLine(pt1,pt3));
+            // lines.append(QLine(pt1,pt3));
+            myFrame.addLine(QLine(pt1,pt3));
         }
         pt1=pt3;
     }
     //painter.drawPoints(points.data(),points.size());
-    painter.drawLines(lines);
-    painter.end();
+    // painter.drawLines(lines);
+    // painter.end();
 
+    //always keep 10 times curves.
+    if(m_vector.size()>10)
+    {
+        m_vector.removeFirst();
+        m_foreImg.fill(Qt::transparent);
+    }
+    m_vector.append(myFrame);
+
+    //draw all history curves.
+    for(qint32 i=0;i<m_vector.size();i++)
+    {
+        ZSingleFrame frame=m_vector.at(i);
+        QVector<QLine> lines=frame.getLines();
+        painter.drawLines(lines);
+    }
+    painter.end();
 
     // QFile file("read_spectrum.dat");
     // if(file.open(QIODevice::WriteOnly|QIODevice::Text))

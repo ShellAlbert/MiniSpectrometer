@@ -30,9 +30,7 @@ public slots:
     void onSpectrumRange(const QString &start, const QString &end);
 
     void onMessage(const QString &message);
-    void onNewImage(const QImage &backgroundImg, const QImage &foregroundImage);
-    void onNewFrame(const QByteArray &payload);
-
+    void onNewImage(const QImage &backgroundImg, const QImage &foregroundImage,const QRect &validRect);
 
     void onConnectClicked();
     void onSendClicked();
@@ -41,11 +39,11 @@ public slots:
 
     void onPortStatusChanged(bool isOpen);
 
+protected:
+    void resizeEvent(QResizeEvent *e) override;
 private slots:
     void onPeriodically(Qt::CheckState state);
     void onTimeout();
-    void resizeEvent(QResizeEvent *e) override;
-
 private:
     QThread *m_workerThread;
     ZRingBuffer *m_ringBuffer;

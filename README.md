@@ -1,1 +1,2 @@
 # MiniSpectrometer
+![MainUI](MainUI.png)

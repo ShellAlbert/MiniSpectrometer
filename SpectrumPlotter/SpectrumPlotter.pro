@@ -10,6 +10,7 @@ SOURCES += \
     main.cpp \
     zmainwindow.cpp \
     zringbuffer.cpp \
+    zsingleframe.cpp \
     zspectrumcanvas.cpp \
     zuartparser.cpp \
     zuartworker.cpp
@@ -17,6 +18,7 @@ SOURCES += \
 HEADERS += \
     zmainwindow.h \
     zringbuffer.h \
+    zsingleframe.h \
     zspectrumcanvas.h \
     zuartparser.h \
     zuartworker.h

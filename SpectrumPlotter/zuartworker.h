@@ -15,6 +15,7 @@ public:
 public slots:
     void initPort(const QString &portName, qint32 baudRate);
     void sendData(const QByteArray &data);
+    void verboseMode(Qt::CheckState state);
 
 private slots:
     void onReadyRead();
@@ -27,6 +28,7 @@ private:
 private:
     ZRingBuffer *m_ringBuffer;
     QSerialPort *m_serialPort;
+    qint32 m_verbose;
 };
 
 #endif // UARTWORKER_H

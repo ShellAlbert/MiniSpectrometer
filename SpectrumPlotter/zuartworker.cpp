@@ -4,7 +4,7 @@
 ZUartWorker::ZUartWorker(ZRingBuffer *buffer, QObject *parent)
     : QObject(parent), m_ringBuffer(buffer), m_serialPort(nullptr)
 {
-
+    m_verbose=0;
 }
 
 ZUartWorker::~ZUartWorker() {
@@ -49,7 +49,19 @@ void ZUartWorker::onReadyRead() {
 void ZUartWorker::sendData(const QByteArray &data)
 {
     writeData(data);
-    emit statusMessage(data.toHex());
+    if(m_verbose)
+    {
+        emit statusMessage(data.toHex());
+    }
+}
+void ZUartWorker::verboseMode(Qt::CheckState state)
+{
+    if(state==Qt::CheckState::Checked)
+    {
+        m_verbose=1;
+    }else{
+        m_verbose=0;
+    }
 }
 void ZUartWorker::writeData(const QByteArray &data)
 {
