@@ -14,6 +14,17 @@ ZUartParser::ZUartParser(ZRingBuffer *buffer, QObject *parent)
     m_timer.start();
 
     m_verbose=0;
+
+    //only keeps 10 history frames.
+    m_hisFrame=new ZHistoryFrame(10);
+}
+ZUartParser::~ZUartParser()
+{
+    if(m_hisFrame)
+    {
+        delete m_hisFrame;
+        m_hisFrame=nullptr;
+    }
 }
 void ZUartParser::verboseMode(Qt::CheckState state)
 {
@@ -554,7 +565,6 @@ void ZUartParser::parseLoop() {
             //2+3+1+1+4+27*4+2+1+2=124
             quint32 photo_data_len=totalFrameSize-124;
             quint32 photo_data_count=photo_data_len/sizeof(quint16);
-            m_cntSpectrum=photo_data_count;
 
             //scan all data to find out the maximum value.
             //extend X axis.
@@ -626,30 +636,34 @@ void ZUartParser::parseLoop() {
         m_ringBuffer->consume(totalFrameSize);
     }
 }
+//call this function once when window size changes(resize/init), not every frame.
 void ZUartParser::drawBackground(QImage &img)
 {
     QFont font("DejaVu Serif",12);
     QFontMetrics fm(font);
 
     QPainter painter(&img);
+    painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(QPen(Qt::red,2,Qt::SolidLine));
     painter.setFont(font);
-    // Translate origin so that logical (0,0) is at pixel (0, height - 100)
-    // This effectively makes the bottom of the image correspond to logical y = -100
+
+    //by default, the Qt's coordinate (0,0) is located at the left-top corner.
+    //here use translate to move (0,0) to (70, img.height()-70), thus right-bottom corner.
+    //we extended the image size by 100 pixels in width and height.
+    //so here 70 pixels are within its valid range.
     painter.translate(70, img.height()-70);
 
     //draw horizontal legend.
-    QString strWaveRange("Supported waveform range (nanometer scale 350nm ~ 1050nm)");
-    qint32 strWaveRangeWidth=fm.horizontalAdvance(strWaveRange); // /2.
+    QString strHorizontal("Supported waveform range (nanometer scale 350nm ~ 1050nm)");
+    qint32 strHorizontalWidth=fm.horizontalAdvance(strHorizontal); // /2.
     painter.setPen(QPen(Qt::white,2,Qt::DotLine));
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.drawText((img.width()-strWaveRangeWidth)/2,60,strWaveRange);
+    painter.drawText((img.width()-strHorizontalWidth)/2,60,strHorizontal);
 
     //draw vertical legend.
-    QString strIntension("Light intensity ( 0 ~ 2^16-1 )");
+    QString strVertical("Light Intensity ( 0 ~ 2^16-1 ) 100% Normalization");
     painter.rotate(-90);
-    //painter.drawText(0,(m_image.width()-fm.horizontalAdvance(strIntension))/2,strIntension);
-    painter.drawText(100,-50,strIntension);
+    painter.drawText((img.height()-fm.horizontalAdvance(strVertical))/2,-50,strVertical);
+    // painter.drawText(100,-50,strVertical);
     painter.rotate(90);
 
     // Flip the Y-axis so positive Y goes UP
@@ -745,41 +759,45 @@ void ZUartParser::drawBackground(QImage &img)
         }
     }
 }
+//call this function to render new image when every new frame comes.
 void ZUartParser::drawForeground(QImage &img, qint32 max_x, qint32 max_y, const QByteArray &data_array, quint32 index, quint32 point_count)
 {
+    //update the oldest frame in history.
+    ZSingleFrame *frame=m_hisFrame->getOldest();
+    qint32 frameLineIndex=0;
+
     //move (0,0) to a new position.
     //so we can only update the specified area. (points area) to save time while painting.
     QPainter painter(&img);
-    //the image is extended by (+100,+100). here 70 pixels are acceptable.
+    painter.setPen(QPen(Qt::green,2,Qt::SolidLine));
+
+    //the image was extended by 100 pixels in width and height for axes drawing.
+    //so here 70 pixels are acceptable, they are within the valid range.
     painter.translate(70, img.height()-70);
-    // Flip the Y-axis so positive Y goes UP
+
+    // Flip the Y-axis so positive Y goes UP.
     painter.scale(1, -1);
 
-
-    //add curve to history vector.
-    ZSingleFrame myFrame;
-
-    //normalize data before drawing.
+    //calculate scale factor to normalize data before drawing.
+    //if we use QImage::scaled() function, the final image will be blur.
     qreal xScaleFactor=(img.width()-100)/(qreal)(max_x);
     qreal yScaleFactor=(img.height()-100)/(qreal)(max_y);
 
-    //draw points and lines.
-    painter.setPen(QPen(Qt::green,2,Qt::SolidLine));
     // QVector<QPoint> points;
     // QVector<QLine> lines;
     QPoint pt1;
-    quint32 data_index=index;
+    quint8 temp81, temp82;
+    quint16 temp16;
+    quint32 array_index=index;
     for(quint32 i=0;i<point_count; i++)
     {
-        quint8 temp81, temp82;
-        quint16 temp16;
-        temp81=static_cast<quint8>(data_array.at(data_index+0));
-        temp82=static_cast<quint8>(data_array.at(data_index+1));
+        temp81=static_cast<quint8>(data_array.at(array_index+0));
+        temp82=static_cast<quint8>(data_array.at(array_index+1));
         temp16=(static_cast<quint16>(temp82)<<8)|(static_cast<quint16>(temp81)<<0);
-        data_index+=2;
+        array_index+=2;
 
         //original.
-        QPoint pt2=QPoint(i,temp16);
+        // QPoint pt2=QPoint(i,temp16);
         // points.append(pt2);
         // if(i!=0)
         // {
@@ -791,31 +809,31 @@ void ZUartParser::drawForeground(QImage &img, qint32 max_x, qint32 max_y, const 
         QPoint pt3=QPoint(i*xScaleFactor,temp16*yScaleFactor);
         //statusMessage(QString("(%1,%2)*(%3,%4)=(%5,%6)").arg(pt2.x()).arg(pt2.y()).arg(xScaleFactor).arg(yScaleFactor).arg(pt3.x()).arg(pt3.y()));
         // points.append(pt3);
-        if(i!=0)
+        if(i!=0) //at first, no need to draw line.
         {
             // lines.append(QLine(pt1,pt3));
-            myFrame.addLine(QLine(pt1,pt3));
+            if(frameLineIndex<frame->count())
+            {
+                QLine &line=frame->getLineAt(frameLineIndex);
+                line.setPoints(pt1,pt3);
+                frameLineIndex++;
+            }
         }
         pt1=pt3;
     }
-    //painter.drawPoints(points.data(),points.size());
-    // painter.drawLines(lines);
-    // painter.end();
 
-    //always keep 10 times curves.
-    if(m_vector.size()>10)
+    //clear foreground image and draw the latest 10 frames.
+    m_foreImg.fill(Qt::transparent);
+    for(qint32 i=0;i<m_hisFrame->count();i++)
     {
-        m_vector.removeFirst();
-        m_foreImg.fill(Qt::transparent);
-    }
-    m_vector.append(myFrame);
-
-    //draw all history curves.
-    for(qint32 i=0;i<m_vector.size();i++)
-    {
-        ZSingleFrame frame=m_vector.at(i);
-        QVector<QLine> lines=frame.getLines();
-        painter.drawLines(lines);
+        ZSingleFrame *myFrame=m_hisFrame->getFrameAt(i);
+        //drawLines() is faster than drawLine(), high efficiency.
+        painter.drawLines(myFrame->getAllLines());
+        // for(qint32 j=0;j<myFrame->count();j++)
+        // {
+        //     QLine &line=myFrame->getLineAt(j);
+        //     painter.drawLine(line);
+        // }
     }
     painter.end();
 

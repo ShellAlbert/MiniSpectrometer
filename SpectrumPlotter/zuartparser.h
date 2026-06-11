@@ -8,12 +8,14 @@
 #include <QDebug>
 #include "zringbuffer.h"
 #include "zsingleframe.h"
+#include "zhistoryframe.h"
 
 class ZUartParser : public QObject {
     Q_OBJECT
 public:
     explicit ZUartParser(ZRingBuffer *buffer, QObject *parent = nullptr);
-\
+    ~ZUartParser();
+
     void updateCanvasSize(QSize newCanvasSize);
 
 public slots:
@@ -28,14 +30,15 @@ signals:
     void spectrumRange(const QString &start, const QString &end);
     void newImage(const QImage &backgroundImg,const QImage &foregroundImage, const QRect &validRect);
 private:
+    //call this function once when window size changes(resize/init), not every frame.
     void drawBackground(QImage &img);
+    //call this function to render new image when every new frame comes.
     void drawForeground(QImage &img, qint32 max_x, qint32 max_y, const QByteArray &data_array, quint32 index, quint32 point_count);
 private:
     ZRingBuffer *m_ringBuffer;
     QTimer m_timer;
 
     quint8 m_verbose;
-    quint32 m_cntSpectrum;
 
     //canvas size changed.
     //scale image to adapt to new canvas.
@@ -45,11 +48,13 @@ private:
     qint32 m_maxX;
     qint32 m_maxY;
 
+    //pre-rendered static background image, only draw once.
     QImage m_backImg;
     QImage m_foreImg;
 
     //curve history.
     QVector<ZSingleFrame> m_vector;
+    ZHistoryFrame *m_hisFrame;
 };
 
 #endif // PROTOCOLPARSER_H

@@ -1,2 +1,3 @@
 # MiniSpectrometer
-![MainUI](MainUI.png)
+![MainUI.png](MainUI.png)
+![red_light.png](red_light.png)

@@ -7,17 +7,18 @@
 class ZSingleFrame
 {
 public:
-    ZSingleFrame();
+    //1050-350=700, each frame has maximum 700 lines.
+    ZSingleFrame(qint32 capacity=700);
     ~ZSingleFrame();
 
-    void addLine(const QLine &line);
-    void clear();
-    const QVector<QLine>& getLines() const;
-
     qint32 count() const;
+    QLine & getLineAt(qint32 i);
+    QList<QLine> &getAllLines() const;
 
 private:
-    QVector<QLine> m_vector;
+    QList<QLine> *m_list;
+    qint32 m_capacity;
+    QLine m_invalidLine;
 };
 
 #endif // ZSINGLEFRAME_H

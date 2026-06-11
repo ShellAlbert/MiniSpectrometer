@@ -8,6 +8,7 @@ CONFIG += c++17
 
 SOURCES += \
     main.cpp \
+    zhistoryframe.cpp \
     zmainwindow.cpp \
     zringbuffer.cpp \
     zsingleframe.cpp \
@@ -16,6 +17,7 @@ SOURCES += \
     zuartworker.cpp
 
 HEADERS += \
+    zhistoryframe.h \
     zmainwindow.h \
     zringbuffer.h \
     zsingleframe.h \
