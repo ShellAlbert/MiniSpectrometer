@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QTextStream>
 #include <QFontMetrics>
+#include <QPainterPath>
 ZUartParser::ZUartParser(ZRingBuffer *buffer, QObject *parent)
     : QObject(parent), m_ringBuffer(buffer)
 {
@@ -17,7 +18,16 @@ ZUartParser::ZUartParser(ZRingBuffer *buffer, QObject *parent)
 
     //only keeps 10 history frames.
     m_hisFrame=new ZHistoryFrame(10);
+
+    m_gradient=QLinearGradient(0,0,1920,0);
+    m_gradient.setColorAt(0.0, Qt::blue);
+    m_gradient.setColorAt(0.2, Qt::cyan);
+    m_gradient.setColorAt(0.4, Qt::green);
+    m_gradient.setColorAt(0.6, Qt::yellow);
+    m_gradient.setColorAt(0.8, QColor(255,165,0)); //Orange.
+    m_gradient.setColorAt(1.0, Qt::red);
 }
+
 ZUartParser::~ZUartParser()
 {
     if(m_hisFrame)
@@ -38,6 +48,7 @@ void ZUartParser::verboseMode(Qt::CheckState state)
 void ZUartParser::updateCanvasSize(QSize newCanvasSize)
 {
     m_canvasSize=newCanvasSize;
+    m_bSizeChanged=true;
 }
 void ZUartParser::parseLoop() {
     while (true) {
@@ -779,9 +790,13 @@ void ZUartParser::drawForeground(QImage &img, qint32 max_x, qint32 max_y, const 
     painter.scale(1, -1);
 
     //calculate scale factor to normalize data before drawing.
-    //if we use QImage::scaled() function, the final image will be blur.
-    qreal xScaleFactor=(img.width()-100)/(qreal)(max_x);
-    qreal yScaleFactor=(img.height()-100)/(qreal)(max_y);
+    //if we use QImage::scaled() function, the final image will be blurred.
+    if(m_bSizeChanged) //optimization, only calculate once if size changed.
+    {
+        m_xScaleFactor=(img.width()-100)/(qreal)(max_x);
+        m_yScaleFactor=(img.height()-100)/(qreal)(max_y);
+        m_bSizeChanged=false;
+    }
 
     // QVector<QPoint> points;
     // QVector<QLine> lines;
@@ -806,7 +821,7 @@ void ZUartParser::drawForeground(QImage &img, qint32 max_x, qint32 max_y, const 
         // pt1=pt2;
 
         //scale image in working thread to prevent UI zombie state.
-        QPoint pt3=QPoint(i*xScaleFactor,temp16*yScaleFactor);
+        QPoint pt3=QPoint(i*m_xScaleFactor,temp16*m_yScaleFactor);
         //statusMessage(QString("(%1,%2)*(%3,%4)=(%5,%6)").arg(pt2.x()).arg(pt2.y()).arg(xScaleFactor).arg(yScaleFactor).arg(pt3.x()).arg(pt3.y()));
         // points.append(pt3);
         if(i!=0) //at first, no need to draw line.
@@ -828,7 +843,19 @@ void ZUartParser::drawForeground(QImage &img, qint32 max_x, qint32 max_y, const 
     {
         ZSingleFrame *myFrame=m_hisFrame->getFrameAt(i);
         //drawLines() is faster than drawLine(), high efficiency.
-        painter.drawLines(myFrame->getAllLines());
+        //painter.drawLines(myFrame->getAllLines());
+        ///////////////////////////////////////////////////////////
+        QList<QLine> &allLines=myFrame->getAllLines();
+        QList<QPoint> allPoint;
+        for(qint32 i=0;i<allLines.count();i++)
+        {
+            allPoint.append(allLines[i].p1());
+            allPoint.append(allLines[i].p2());
+        }
+        //make it enclose.
+        painter.setBrush(m_gradient);
+        painter.drawPolygon(allPoint);
+
         // for(qint32 j=0;j<myFrame->count();j++)
         // {
         //     QLine &line=myFrame->getLineAt(j);

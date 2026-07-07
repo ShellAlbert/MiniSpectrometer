@@ -145,7 +145,7 @@ void ZMainWindow::onConnectClicked()
 {
     QMetaObject::invokeMethod(m_uartWorker,"initPort",
                               Qt::QueuedConnection,
-                              Q_ARG(QString,"ttyUSB2"),
+                              Q_ARG(QString,"ttyUSB0"),
                               Q_ARG(qint32, 256000));
 }
 void ZMainWindow::onSendClicked()

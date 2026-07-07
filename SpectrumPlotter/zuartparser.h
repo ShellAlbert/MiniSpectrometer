@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <QByteArray>
 #include <QImage>
+#include <QLinearGradient>
 #include <QDebug>
 #include "zringbuffer.h"
 #include "zsingleframe.h"
@@ -55,6 +56,11 @@ private:
     //curve history.
     QVector<ZSingleFrame> m_vector;
     ZHistoryFrame *m_hisFrame;
+
+    QLinearGradient m_gradient;
+    bool m_bSizeChanged;
+    qreal m_xScaleFactor;
+    qreal m_yScaleFactor;
 };
 
 #endif // PROTOCOLPARSER_H
