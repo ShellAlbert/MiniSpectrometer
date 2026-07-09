@@ -71,6 +71,12 @@ ZMainWindow::ZMainWindow(QWidget *parent)
     m_llCounts=new QLabel;
     m_llCounts->setText("0");
 
+    m_tbZoomIn=new QToolButton;
+    m_tbZoomIn->setText("Zoom In");
+
+    m_tbZoomOut=new QToolButton;
+    m_tbZoomOut->setText("Zoom Out");
+
     m_hLayoutBtn=new QHBoxLayout;
     m_hLayoutBtn->addWidget(m_tbInitDev);
     m_hLayoutBtn->addWidget(m_tbGetRange);
@@ -79,6 +85,8 @@ ZMainWindow::ZMainWindow(QWidget *parent)
     m_hLayoutBtn->addWidget(m_cbPeriodically);
     m_hLayoutBtn->addWidget(m_llCounts);
     m_hLayoutBtn->addStretch(1);
+    m_hLayoutBtn->addWidget(m_tbZoomIn);
+    m_hLayoutBtn->addWidget(m_tbZoomOut);
 
     m_spliter=new QSplitter(Qt::Vertical);
     m_spliter->addWidget(m_scrollArea);
@@ -94,6 +102,9 @@ ZMainWindow::ZMainWindow(QWidget *parent)
     connect(m_cbVerbose,&QCheckBox::checkStateChanged, m_uartParser,&ZUartParser::verboseMode);
     connect(m_cbVerbose,&QCheckBox::checkStateChanged, m_uartWorker,&ZUartWorker::verboseMode);
     connect(m_cbPeriodically,&QCheckBox::checkStateChanged,this,&ZMainWindow::onPeriodically);
+
+    connect(m_tbZoomIn,&QToolButton::clicked,m_uartParser,&ZUartParser::onZoomIn);
+    connect(m_tbZoomOut,&QToolButton::clicked,m_uartParser,&ZUartParser::onZoomOut);
 
     connect(this,&ZMainWindow::sendCommand,m_uartWorker,&ZUartWorker::sendData);
 }

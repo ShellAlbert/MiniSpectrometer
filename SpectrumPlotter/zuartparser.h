@@ -21,6 +21,8 @@ public:
 
 public slots:
     void verboseMode(Qt::CheckState state);
+    void onZoomIn();
+    void onZoomOut();
 private slots:
     void parseLoop();
 

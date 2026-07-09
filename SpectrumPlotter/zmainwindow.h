@@ -38,7 +38,6 @@ public slots:
     void onUpdateUI(const QByteArray &data);
 
     void onPortStatusChanged(bool isOpen);
-
 protected:
     void resizeEvent(QResizeEvent *e) override;
 private slots:
@@ -60,6 +59,8 @@ private:
     QToolButton *m_tbInitDev;
     QToolButton *m_tbGetRange;
     QToolButton *m_tbGetSpectrum;
+    QToolButton *m_tbZoomIn;
+    QToolButton *m_tbZoomOut;
     QCheckBox *m_cbVerbose;
     QCheckBox *m_cbPeriodically;
     QLabel *m_llCounts;

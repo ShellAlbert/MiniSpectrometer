@@ -19,6 +19,7 @@ ZUartParser::ZUartParser(ZRingBuffer *buffer, QObject *parent)
     //only keeps 10 history frames.
     m_hisFrame=new ZHistoryFrame(10);
 
+    //color mapping.
     m_gradient=QLinearGradient(0,0,1920,0);
     m_gradient.setColorAt(0.0, Qt::blue);
     m_gradient.setColorAt(0.2, Qt::cyan);
@@ -44,6 +45,14 @@ void ZUartParser::verboseMode(Qt::CheckState state)
     }else{
         m_verbose=0;
     }
+}
+void ZUartParser::onZoomIn()
+{
+    m_yScaleFactor*=1.1f;
+}
+void ZUartParser::onZoomOut()
+{
+    m_yScaleFactor/=1.1f;
 }
 void ZUartParser::updateCanvasSize(QSize newCanvasSize)
 {
@@ -775,7 +784,6 @@ void ZUartParser::drawForeground(QImage &img, qint32 max_x, qint32 max_y, const 
 {
     //update the oldest frame in history.
     ZSingleFrame *frame=m_hisFrame->getOldest();
-    qint32 frameLineIndex=0;
 
     //move (0,0) to a new position.
     //so we can only update the specified area. (points area) to save time while painting.
@@ -801,14 +809,13 @@ void ZUartParser::drawForeground(QImage &img, qint32 max_x, qint32 max_y, const 
     // QVector<QPoint> points;
     // QVector<QLine> lines;
     QPoint pt1;
-    quint8 temp81, temp82;
-    quint16 temp16;
     quint32 array_index=index;
+    qint32 lineIdx=0;
     for(quint32 i=0;i<point_count; i++)
     {
-        temp81=static_cast<quint8>(data_array.at(array_index+0));
-        temp82=static_cast<quint8>(data_array.at(array_index+1));
-        temp16=(static_cast<quint16>(temp82)<<8)|(static_cast<quint16>(temp81)<<0);
+        quint8 temp81=static_cast<quint8>(data_array.at(array_index+0));
+        quint8 temp82=static_cast<quint8>(data_array.at(array_index+1));
+        quint16 temp16=(static_cast<quint16>(temp82)<<8)|(static_cast<quint16>(temp81)<<0);
         array_index+=2;
 
         //original.
@@ -824,15 +831,11 @@ void ZUartParser::drawForeground(QImage &img, qint32 max_x, qint32 max_y, const 
         QPoint pt3=QPoint(i*m_xScaleFactor,temp16*m_yScaleFactor);
         //statusMessage(QString("(%1,%2)*(%3,%4)=(%5,%6)").arg(pt2.x()).arg(pt2.y()).arg(xScaleFactor).arg(yScaleFactor).arg(pt3.x()).arg(pt3.y()));
         // points.append(pt3);
-        if(i!=0) //at first, no need to draw line.
+        if(i!=0 && lineIdx<frame->count()) //at first, no need to draw line.
         {
-            // lines.append(QLine(pt1,pt3));
-            if(frameLineIndex<frame->count())
-            {
-                QLine &line=frame->getLineAt(frameLineIndex);
-                line.setPoints(pt1,pt3);
-                frameLineIndex++;
-            }
+            QLine &line=frame->getLineAt(lineIdx);
+            line.setPoints(pt1,pt3);
+            ++lineIdx;
         }
         pt1=pt3;
     }
